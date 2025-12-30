@@ -1,8 +1,9 @@
-import { connectDB } from "@/lib/mongodb";
+import clientPromise from "@/lib/mongodb";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  const db = await connectDB();
+  const client = await clientPromise;
+  const db = client.db();
 
   const users = await db
     .collection("users")
