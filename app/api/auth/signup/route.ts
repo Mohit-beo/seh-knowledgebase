@@ -1,10 +1,11 @@
-import { connectDB } from "@/lib/mongodb";
+import clientPromise from "@/lib/mongodb";
 import bcrypt from "bcrypt";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   const body = await req.json();
-  const db = await connectDB();
+  const client = await clientPromise;
+  const db = client.db();
 
   const hashed = await bcrypt.hash(body.password, 10);
 

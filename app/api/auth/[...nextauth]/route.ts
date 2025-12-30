@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { connectDB } from "@/lib/mongodb";
+import clientPromise from "@/lib/mongodb";
 import bcrypt from "bcrypt";
 
 const handler = NextAuth({
@@ -11,7 +11,8 @@ const handler = NextAuth({
         password: {}
       },
       async authorize(credentials) {
-        const db = await connectDB();
+        const client = await clientPromise;
+        const db = client.db();
         const user = await db
           .collection("users")
           .findOne({ email: credentials?.email });
