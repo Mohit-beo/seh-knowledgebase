@@ -1,45 +1,51 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
+    setError("");
 
-    const res = await fetch("/api/auth/login", {
+    fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
-    });
-
-    if (res.ok) {
-      router.push("/dashboard"); // ✅ redirect after login
-    } else {
-      const data = await res.json();
-      setError(data.message || "Login failed");
-    }
+      credentials: "include", // ✅ important
+    })
+      .then((res) => {
+        // full reload ensures cookie is sent
+        if (res.ok) {
+          window.location.href = "/dashboard";
+        } else {
+          return res.json().then((data) => {
+            setError(data.message || "Login failed");
+          });
+        }
+      })
+      .finally(() => setLoading(false));
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <form
         onSubmit={handleSubmit}
-        className="bg-white p-6 rounded shadow w-80"
+        className="bg-white p-6 rounded shadow-md w-full max-w-sm"
       >
-        <h2 className="text-xl font-bold mb-4">Login</h2>
+        <h2 className="text-xl font-bold mb-4 text-center">Login</h2>
 
-        {error && <p className="text-red-500 mb-2">{error}</p>}
+        {error && <p className="text-red-500 mb-3">{error}</p>}
 
         <input
           type="email"
           placeholder="Email"
-          className="border p-2 w-full mb-3"
+          className="w-full border p-2 mb-3"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -48,7 +54,7 @@ export default function LoginPage() {
         <input
           type="password"
           placeholder="Password"
-          className="border p-2 w-full mb-4"
+          className="w-full border p-2 mb-4"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
@@ -56,9 +62,10 @@ export default function LoginPage() {
 
         <button
           type="submit"
-          className="bg-blue-600 text-white w-full py-2 rounded"
+          disabled={loading}
+          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
         >
-          Login
+          {loading ? "Logging in..." : "Login"}
         </button>
       </form>
     </div>

@@ -1,219 +1,153 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Navbar from "@/components/Navbar";
+import { useRouter } from "next/navigation";
 
-type Answer = {
-  _id: string;
-  text: string;
-  userId: string;
-  userName: string;
-};
-
+type User = { name: string; role: string; email: string };
+type Answer = { _id: string; text: string; userName: string; userId: string; createdAt: string };
 type Question = {
   _id: string;
   title: string;
-  description: string;
-  createdBy: string;
-  createdByName: string;
+  text: string;
+  userName: string;
+  userId: string;
+  createdAt: string;
   answers: Answer[];
 };
 
 export default function ForumPage() {
+  const router = useRouter();
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [newQuestion, setNewQuestion] = useState({ title: "", text: "" });
 
-  const [editingAnswer, setEditingAnswer] = useState<{
-    questionId: string;
-    _id: string;
-    text: string;
-  } | null>(null);
-
-  // TEMP – replace later with real auth data
-  const currentUserId = "demo-user";
-  const isAdmin = true;
-
-  // Load questions
-  async function loadQuestions() {
-    const res = await fetch("/api/forum/list");
-    const data = await res.json();
-    setQuestions(data);
-  }
-
+  // Fetch user session
   useEffect(() => {
-    loadQuestions();
+    fetch("/api/auth/me", { credentials: "include" })
+      .then((res) => res.status === 200 ? res.json() : null)
+      .then((data) => {
+        if (data?.user) setUser(data.user);
+      });
   }, []);
 
-  // Create Question
-  async function submitQuestion() {
-    if (!title || !description) return;
+  // Fetch questions
+  useEffect(() => {
+    fetch("/api/forum/questions")
+      .then((res) => res.json())
+      .then((data) => setQuestions(data.questions))
+      .finally(() => setLoading(false));
+  }, []);
 
-    await fetch("/api/forum/create", {
+  // Submit new question
+  const submitQuestion = () => {
+    if (!user) {
+      alert("Please login to post a question");
+      return;
+    }
+
+    fetch("/api/forum/questions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        description,
-        userId: currentUserId,
-        userName: "Demo User",
-      }),
+      body: JSON.stringify({ ...newQuestion }),
+      credentials: "include",
+    }).then((res) => {
+      if (res.ok) {
+        setNewQuestion({ title: "", text: "" });
+        router.refresh();
+      }
     });
+  };
 
-    setTitle("");
-    setDescription("");
-    loadQuestions();
-  }
+  // Submit answer
+  const submitAnswer = (questionId: string, text: string) => {
+    if (!user) {
+      alert("Please login to post an answer");
+      return;
+    }
 
-  // Delete Answer
-  async function deleteAnswer(questionId: string, answerId: string) {
-    await fetch("/api/forum/answer/delete", {
+    fetch(`/api/forum/questions/${questionId}/answers`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ questionId, answerId }),
-    });
+      body: JSON.stringify({ text }),
+      credentials: "include",
+    }).then((res) => res.ok && router.refresh());
+  };
 
-    loadQuestions();
-  }
-
-  // Update Answer
-  async function updateAnswer() {
-    if (!editingAnswer) return;
-
-    await fetch("/api/forum/answer/edit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editingAnswer),
-    });
-
-    setEditingAnswer(null);
-    loadQuestions();
-  }
+  if (loading) return <div className="p-6">Loading forum...</div>;
 
   return (
-    <>
-    <Navbar/>
-    <main className="max-w-5xl mx-auto p-6">
-      <h1 className="text-xl font-semibold mb-6">
-        Employee Forum
-      </h1>
+    <div className="max-w-5xl mx-auto p-6">
+      <h1 className="text-3xl font-bold mb-6">Forum</h1>
 
-      {/* CREATE QUESTION */}
-      <div className="bg-white border p-4 mb-6 rounded">
-        <h2 className="font-medium mb-2">Ask a Question</h2>
-        <input
-          className="w-full border p-2 mb-2"
-          placeholder="Question title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <textarea
-          className="w-full border p-2"
-          placeholder="Describe your issue"
-          rows={4}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-        <button
-          onClick={submitQuestion}
-          className="mt-2 bg-blue-700 text-white px-4 py-2"
-        >
-          Post Question
-        </button>
-      </div>
+      {/* New Question Form */}
+      {user ? (
+        <div className="mb-6 p-4 border rounded bg-white shadow">
+          <h2 className="font-semibold mb-2">Ask a Question</h2>
+          <input
+            className="w-full border p-2 mb-2"
+            placeholder="Title"
+            value={newQuestion.title}
+            onChange={(e) => setNewQuestion({ ...newQuestion, title: e.target.value })}
+          />
+          <textarea
+            className="w-full border p-2 mb-2"
+            placeholder="Details"
+            value={newQuestion.text}
+            onChange={(e) => setNewQuestion({ ...newQuestion, text: e.target.value })}
+          />
+          <button
+            onClick={submitQuestion}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Post Question
+          </button>
+        </div>
+      ) : (
+        <p className="mb-6 text-gray-600">Login to post a question or answer.</p>
+      )}
 
-      {/* QUESTIONS */}
-      <div className="space-y-4">
-        {questions.map((q) => (
-          <div key={q._id} className="border p-4 rounded">
-            <h3 className="font-semibold">{q.title}</h3>
-            <p className="text-sm mt-1">{q.description}</p>
-
-            <p className="text-xs text-gray-500 mt-1">
-              Asked by {q.createdByName}
-            </p>
-
-            {/* ANSWERS */}
-            <div className="mt-3 space-y-3">
-              {q.answers.map((a) => (
-                <div
-                  key={a._id}
-                  className="border-l-4 pl-3 py-2 bg-gray-50"
-                >
-                  <p className="text-sm">{a.text}</p>
-
-                  <div className="text-xs text-gray-500 mt-1 flex gap-3">
-                    <span>— {a.userName}</span>
-
-                    {(a.userId === currentUserId || isAdmin) && (
-                      <>
-                        <button
-                          className="text-blue-600"
-                          onClick={() =>
-                            setEditingAnswer({
-                              _id: a._id,
-                              questionId: q._id,
-                              text: a.text,
-                            })
-                          }
-                        >
-                          Edit
-                        </button>
-
-                        <button
-                          className="text-red-600"
-                          onClick={() =>
-                            deleteAnswer(q._id, a._id)
-                          }
-                        >
-                          Delete
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+      {/* Questions List */}
+      {questions.map((q) => (
+        <div key={q._id} className="mb-6 p-4 border rounded bg-white shadow">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-xl font-semibold">{q.title}</h3>
+            <span className="text-sm text-gray-500">{new Date(q.createdAt).toLocaleString()}</span>
           </div>
-        ))}
-      </div>
+          <p className="mb-2">{q.text}</p>
+          <p className="text-sm text-gray-600 mb-4">Asked by: {q.userName}</p>
 
-      {/* EDIT MODAL */}
-      {editingAnswer && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white p-6 rounded w-full max-w-md">
-            <h3 className="font-semibold mb-2">Edit Answer</h3>
+          {/* Answers */}
+          <div className="pl-4 border-l border-gray-300">
+            {q.answers.map((a) => (
+              <div key={a._id} className="mb-2">
+                <p>{a.text}</p>
+                <p className="text-sm text-gray-500">
+                  Answered by: {a.userName} at {new Date(a.createdAt).toLocaleString()}
+                </p>
+              </div>
+            ))}
 
-            <textarea
-              className="w-full border p-2"
-              rows={4}
-              value={editingAnswer.text}
-              onChange={(e) =>
-                setEditingAnswer({
-                  ...editingAnswer,
-                  text: e.target.value,
-                })
-              }
-            />
-
-            <div className="flex justify-end gap-2 mt-4">
-              <button
-                className="px-3 py-1 border"
-                onClick={() => setEditingAnswer(null)}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-3 py-1 bg-blue-600 text-white"
-                onClick={updateAnswer}
-              >
-                Save
-              </button>
-            </div>
+            {/* New Answer Form */}
+            {user && (
+              <div className="mt-2">
+                <textarea
+                  placeholder="Write an answer..."
+                  className="w-full border p-2 mb-2"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      submitAnswer(q._id, (e.target as HTMLTextAreaElement).value);
+                      (e.target as HTMLTextAreaElement).value = "";
+                    }
+                  }}
+                />
+                <small className="text-gray-500">Press Enter to submit</small>
+              </div>
+            )}
           </div>
         </div>
-      )}
-    </main>
-    </>
+      ))}
+    </div>
   );
 }
