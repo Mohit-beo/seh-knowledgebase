@@ -19,7 +19,9 @@ export default function Navbar() {
 </Link>
 
           <button className="flex items-center gap-2 text-sm border px-3 py-1 rounded-md">
-            <User size={16} /> Login
+            <User size={16} /> <Link href="/auth/login" className="text-sm text-accent">
+  Login
+</Link>
           </button>
         </div>
       </div>

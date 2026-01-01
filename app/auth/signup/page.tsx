@@ -1,125 +1,118 @@
 "use client";
 
-import Navbar from "@/components/Navbar";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function SignupPage() {
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const router = useRouter();
 
-  async function handleSubmit(e: any) {
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    department: "",
+    designation: "",
+  });
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError("");
 
-    const form = e.target;
+    try {
+      const res = await fetch("/api/users/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(form),
+      });
 
-    const data = {
-      name: form.name.value,
-      email: form.email.value,
-      password: form.password.value,
-      employeeType: form.employeeType.value,
-      district: form.district.value,
-      officeCode: form.officeCode.value,
-    };
+      const data = await res.json();
 
-    const res = await fetch("/api/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
+      if (!res.ok) {
+        throw new Error(data.message || "Signup failed");
+      }
 
-    setLoading(false);
-    if (res.ok) setSuccess(true);
-  }
+      alert("User registered successfully!");
+      router.push("/login"); // or dashboard
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <>
-      <Navbar />
-
-      <main className="max-w-xl mx-auto px-4 py-10">
-        <h1 className="text-xl font-semibold mb-2">
-          Employee Registration
-        </h1>
-        <p className="text-sm text-gray-600 mb-6">
-          Only School Education Haryana employees are allowed.  
-          Registration will be approved by Admin.
-        </p>
-
-        {success ? (
-          <div className="bg-green-50 border border-green-200 p-4 rounded text-green-700">
-            Registration submitted successfully.  
-            Your account is pending admin approval.
-          </div>
-        ) : (
-          <form
-            onSubmit={handleSubmit}
-            className="bg-white p-6 rounded-md shadow-sm space-y-4"
-          >
-            <Input label="Full Name" name="name" required />
-            <Input label="Email / Mobile" name="email" required />
-            <Input
-              label="Password"
-              name="password"
-              type="password"
-              required
-            />
-
-            <Select
-              label="Employee Type"
-              name="employeeType"
-              options={[
-                "Teacher",
-                "Clerk",
-                "Headmaster",
-                "BEO",
-                "DEO",
-              ]}
-            />
-
-            <Input label="District" name="district" required />
-            <Input
-              label="Office / School Code"
-              name="officeCode"
-              required
-            />
-
-            <button
-              disabled={loading}
-              className="w-full bg-primary text-white py-2 rounded mt-2"
-            >
-              {loading ? "Submitting..." : "Register"}
-            </button>
-          </form>
-        )}
-      </main>
-    </>
-  );
-}
-
-function Input({ label, ...props }: any) {
-  return (
-    <div>
-      <label className="text-sm block mb-1">{label}</label>
-      <input
-        {...props}
-        className="w-full border p-2 rounded focus:outline-none"
-      />
-    </div>
-  );
-}
-
-function Select({ label, name, options }: any) {
-  return (
-    <div>
-      <label className="text-sm block mb-1">{label}</label>
-      <select
-        name={name}
-        className="w-full border p-2 rounded"
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white p-6 rounded shadow-md w-full max-w-md"
       >
-        {options.map((opt: string) => (
-          <option key={opt}>{opt}</option>
-        ))}
-      </select>
+        <h2 className="text-xl font-semibold mb-4 text-center">
+          Create Account
+        </h2>
+
+        <input
+          type="text"
+          name="name"
+          placeholder="Full Name"
+          className="w-full border p-2 mb-3"
+          required
+          onChange={handleChange}
+        />
+
+        <input
+          type="email"
+          name="email"
+          placeholder="Email"
+          className="w-full border p-2 mb-3"
+          required
+          onChange={handleChange}
+        />
+
+        <input
+          type="password"
+          name="password"
+          placeholder="Password"
+          className="w-full border p-2 mb-3"
+          required
+          onChange={handleChange}
+        />
+
+        <input
+          type="text"
+          name="department"
+          placeholder="Department"
+          className="w-full border p-2 mb-3"
+          onChange={handleChange}
+        />
+
+        <input
+          type="text"
+          name="designation"
+          placeholder="Designation"
+          className="w-full border p-2 mb-4"
+          onChange={handleChange}
+        />
+
+        {error && <p className="text-red-600 mb-2">{error}</p>}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+        >
+          {loading ? "Creating..." : "Create Account"}
+        </button>
+      </form>
     </div>
   );
 }
