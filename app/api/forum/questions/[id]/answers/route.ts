@@ -1,33 +1,47 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { ObjectId } from "mongodb";
 import clientPromise from "@/lib/mongodb";
 import jwt from "jsonwebtoken";
-import { ObjectId } from "mongodb";
+import type { Question } from "@/types/forum";
 
 export async function POST(
-  req: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: any // <-- IMPORTANT FIX
 ) {
-  const token = req.headers.get("cookie")?.split("token=")[1];
-  if (!token)
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  const { id } = context.params; // safe access
 
-  let user;
+  // 1️⃣ Read token
+  const token = request.cookies.get("token")?.value;
+  if (!token) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+
+  // 2️⃣ Verify JWT
+  let user: { id: string; name: string };
   try {
-    user = jwt.verify(token, process.env.JWT_SECRET!);
+    user = jwt.verify(token, process.env.JWT_SECRET!) as {
+      id: string;
+      name: string;
+    };
   } catch {
     return NextResponse.json({ message: "Invalid token" }, { status: 401 });
   }
 
-  const { text } = await req.json();
+  // 3️⃣ Parse body
+  const { text } = await request.json();
   if (!text) {
-    return NextResponse.json({ message: "Answer required" }, { status: 400 });
+    return NextResponse.json(
+      { message: "Answer text required" },
+      { status: 400 }
+    );
   }
 
+  // 4️⃣ MongoDB insert
   const client = await clientPromise;
   const db = client.db();
 
-  await db.collection("questions").updateOne(
-    { _id: new ObjectId(params.id) },
+  await db.collection<Question>("questions").updateOne(
+    { _id: new ObjectId(id) },
     {
       $push: {
         answers: {
